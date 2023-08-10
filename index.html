@@ -1,0 +1,81 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuintanaLibre</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://kit.fontawesome.com/7d30392e61.js" crossorigin="anonymous"></script>
+</head>
+    <body>
+    <header>
+        <div class="nav-search">
+            <div class="logo"><img src="img/logo.png"></div>
+            <input type="text" class="search" placeholder="Buscar productos...">
+            <img src="img/lupa.png" id="lupa">
+        </div>
+        <div class="abrir-nav" data-id="0"><i class="fa-solid fa-bars"></i></div>
+        <nav class="nav">
+            <ul class="nav-list">
+                <li><a href="#">Inicio</a></li>
+                <li><a href="#">Ofertas</a></li>
+                <li><a href="#">Login</a></li>
+            </ul>
+        </nav>
+        <div class="carrito">
+            <i class="fa-solid fa-cart-shopping iconCarrito"><span class="contador">0</span></i>
+            <div class="carrito__menu">
+                <div class="carrito__contenedor">
+                    <h2>Tus productos</h2>
+                    <div class="carrito__productos"></div>
+                    <span class="divider"></span>
+                    <div class="carrito__total">
+                        <p>Total:</p>
+                        <span class="total"></span>
+                    </div>
+                    <button class="boton-compra">Comprar</button>
+                    <button class="boton-borrar">Vaciar carrito</button>
+                </div>
+            </div>    
+        </div>
+    </header>
+
+    <main>
+        <div class="banner">
+            <div class="contenedorr">
+                <div class="slider-contenedor">
+                    <div class="slider-item">
+                        <img src="img/banner-1.jpg" alt="3213213" class="banner-img">
+                    </div>
+
+                    <div class="slider-item">
+                        <img src="img/banner-2.jpg" alt="321321" class="banner-img">
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+
+        <div class="seccion-productos" id="seccion-productos">
+            <div class="menu-productos">
+                <h3>Categorias</h3>
+                <ul>
+                    <li class="categoria active"><img src="img/sidebar/remera.png">Todas</li>
+                    <li class="categoria" data-categoria="remera"><img src="img/sidebar/remera.png">Remeras</li>
+                    <li class="categoria" data-categoria="zapatilla"><img src="img/sidebar/zapatillas.png">Zapatillas</li>
+                    <li class="categoria" data-categoria="abrigo"><img src="img/sidebar/abrigo.png">Abrigos</li>
+                    <li class="categoria" data-categoria="collar"><img src="img/sidebar/collar.png">Collares</li>
+                    <li class="categoria" data-categoria="anteojo"><img src="img/sidebar/anteojo.png">Anteojos</li>
+                    <li class="categoria" data-categoria="sombrero"><img src="img/sidebar/sombrero.png">Sombreros</li>
+                    <li class="categoria" data-categoria="billetera"><img src="img/sidebar/billetera.png">Billeteras</li>
+                </ul>
+            </div>
+            <div class="contenedor-productos">
+                
+            </div>
+        </div>
+    </main>
+
+    <script src="data.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
