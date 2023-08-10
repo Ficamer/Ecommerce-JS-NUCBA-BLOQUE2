@@ -270,7 +270,7 @@ main {
     color:white;
     display:block;
     margin-top:5px;
-    width:80%;
+    width:90%;
     border: none;
     border-radius:5px;
     padding:7px;
@@ -438,6 +438,6 @@ main {
     }
     .carrito__items {
         width:250px;
-        height:100px;
+        height:75px;
     }
 }
