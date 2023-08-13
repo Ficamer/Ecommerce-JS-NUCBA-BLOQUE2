@@ -10,6 +10,7 @@ const botonCompra = document.querySelector('.boton-compra');
 const total = document.querySelector('.total');
 const contenedorProductos = document.querySelector('.contenedor-productos');
 const categorias = document.querySelector('.menu-productos');
+const categoriasCelular = document.querySelector('.categorias-celular');
 //HTML collection de todas las categorias
 const listaCategorias = document.querySelectorAll('.categoria');
 
@@ -94,7 +95,9 @@ abrirNav.addEventListener('click', e =>{
         nav.classList.remove("visible");
     }
 });
-
+categoriasCelular.addEventListener('click',()=>{   
+    categorias.classList.toggle('show-overlay');
+});
 //Abrir y cerrar el carrito.
 const toggleCart = () => {
     menuCarrito.classList.toggle('open-cart'); //El método toggle() alterna entre hide() y show(), basicamente agrega o quita una clase.

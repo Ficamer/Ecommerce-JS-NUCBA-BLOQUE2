@@ -182,6 +182,21 @@ main {
 .active{
     background-color:#e6edf6;
 }
+.categorias-celular {
+    display:none;
+    position:relative;
+    width:100%;
+    height:50px;
+    background-color:#ffffff;
+    box-shadow: 0px 0px 1px 0 rgba(0,0,0,.2);
+    justify-content: center;
+    align-items:center;
+}
+.categorias-celular span {
+    position:absolute;
+    right:5%;
+    font-size:20px;
+}
 /*Menu carrito*/
 .carrito {
     position:relative;
@@ -297,7 +312,6 @@ main {
 }
 .show-overlay {
     display:flex;
-   
 }
 
 /*PRODUCTOS */
@@ -357,16 +371,17 @@ main {
 }
 
 @media (max-width: 750px) {
-    .menu-productos {
+    .menu-productos{
+        display:none;
         position:relative;
         top:0;
-        display:flex;
         align-items:center;
         justify-content: center;
         z-index:2;
         flex-direction:row;
         height:auto;
-        width:91%;
+        width:100%;
+        padding:0;
     }
     .menu-productos ul {
         flex-wrap:wrap;
@@ -385,6 +400,15 @@ main {
         flex-direction:column;
         gap:15px;
         align-items:center;
+    }
+    .categorias-celular {
+        display:flex;
+    }
+    .show-overlay {
+        display:flex;
+    }
+    .contenedor-productos {
+        width:95%;
     }
 }
 @media (max-width: 600px) {
