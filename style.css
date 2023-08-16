@@ -25,15 +25,10 @@ header {
     align-items:center;
     width:600px;
     height:60px;
+    padding: 0px 0px 0px 15px;
     gap:15px;
 }
-.logo {
-    width:80px;
-    height:60px;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-}
+
 #lupa {
     position:absolute;
     right:10px;
@@ -101,7 +96,25 @@ main {
     flex-direction:column;
     align-items:center;
 }
-
+.contenedor-buscados {
+    position:absolute;
+    display:flex;
+    justify-content:center;
+    top:60px;
+    width:100%;
+    height:auto;
+    background-color:#1d294a;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    box-shadow: 0px 0px 1px 0 rgba(0,0,0,.8);
+}
+.productos-buscados {
+    display:none;
+    flex-direction: column;
+    gap:5px;
+    padding:15px;
+    height:auto;
+}
 /*BANNER*/
 
 .banner {
@@ -409,6 +422,19 @@ main {
     }
     .contenedor-productos {
         width:95%;
+    }
+    .contenedor-buscados {
+        position:fixed;
+        display:flex;
+        left:0;
+        top:60px;
+        width:100%;
+    }
+    .productos-buscados{
+        display:flex;
+        align-items:center;
+        justify-content: center;
+        width:90%;
     }
 }
 @media (max-width: 600px) {

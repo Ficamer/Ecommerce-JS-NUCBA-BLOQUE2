@@ -4,6 +4,8 @@ const menuCarrito = document.querySelector('.carrito__menu');
 const productosCarrito = document.querySelector('.carrito__productos');
 const iconoCarrito = document.querySelector('.iconCarrito');
 const contadorHtml = document.querySelector('.contador');
+const buscador = document.querySelector('.search');
+const contenedorBuscados = document.querySelector('.productos-buscados');
 //Boton vaciar carrito
 const botonBorrar = document.querySelector('.boton-borrar');
 const botonCompra = document.querySelector('.boton-compra');
@@ -48,6 +50,15 @@ const renderProducts = (categoria = undefined) => { //Render es un nombre que se
     renderFilteredProducts(categoria); //Filtro por categoria
 };
 
+//Renderizo productos buscados
+const renderSearchedProducts = (categoria) =>{
+    if (categoria.length == 0){
+        contenedorBuscados.innerHTML ="";
+        return;
+    }
+    const productList = productsData.filter((producto) => producto.nombre.toLowerCase().includes(categoria.toLowerCase()) && (producto.nombre[0].toLowerCase() == categoria[0].toLowerCase()));
+    contenedorBuscados.innerHTML = productList.map(renderProduct).join('');
+}
 
 //Logica de filtros 
 const cambiarEstadoListaActiva = (categoriaSeleccionada) => {
@@ -64,6 +75,21 @@ const cambiarFiltroEstado = e=>{
     const categoriaSeleccionada = e.target.dataset.categoria; //Guardo la categoria del target
     cambiarEstadoListaActiva(categoriaSeleccionada);
 };
+const filtrarPorBusqueda = ()=>{
+    const categoria = buscador.value.trim('');
+    if (categoria.length >0){
+        contenedorBuscados.style.display="flex";
+        if(nav.classList.contains('visible')){
+            abrirNav.innerHTML = `<i class="fa-solid fa-bars"></i>`;
+            abrirNav.dataset.id ="0";
+            nav.classList.remove('visible');
+        } 
+        menuCarrito.classList.remove('open-cart')
+    }else {
+        contenedorBuscados.style.display="none";
+    }
+    renderSearchedProducts(categoria);
+}
 const aplicarFiltro = e=>{
     if(!e.target.classList.contains('categoria'))return; //Si no contiene la clase categoria retornar.
     cambiarFiltroEstado(e);
@@ -101,6 +127,7 @@ categoriasCelular.addEventListener('click',()=>{
 //Abrir y cerrar el carrito.
 const toggleCart = () => {
     menuCarrito.classList.toggle('open-cart'); //El método toggle() alterna entre hide() y show(), basicamente agrega o quita una clase.
+    contenedorBuscados.style.display="none";
     if(nav.classList.contains('visible')){
         abrirNav.innerHTML = `<i class="fa-solid fa-bars"></i>`;
         abrirNav.dataset.id ="0";
@@ -210,6 +237,7 @@ const checkEstadoCarrito = () =>{
 const init = ()=>{
     renderProducts();
     categorias.addEventListener('click',aplicarFiltro);
+    buscador.addEventListener('keyup',filtrarPorBusqueda);
     contenedorProductos.addEventListener('click',agregarProductoCarrito);
     iconoCarrito.addEventListener('click',toggleCart);
     document.addEventListener('DOMContentLoaded',checkEstadoCarrito);
