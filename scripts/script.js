@@ -1,37 +1,43 @@
+//Constantes nav menu
 const nav = document.querySelector('.nav');
 const abrirNav = document.querySelector('.abrir-nav');
-const menuCarrito = document.querySelector('.carrito__menu');
-const productosCarrito = document.querySelector('.carrito__productos');
-const iconoCarrito = document.querySelector('.iconCarrito');
-const contadorHtml = document.querySelector('.contador');
 const buscador = document.querySelector('.search');
+
+//Constantes contenedores para cargar productos
 const contenedorBuscados = document.querySelector('.productos-buscados');
-//Boton vaciar carrito
-const botonBorrar = document.querySelector('.boton-borrar');
-const botonCompra = document.querySelector('.boton-compra');
-const total = document.querySelector('.total');
 const contenedorProductos = document.querySelector('.contenedor-productos');
-const categorias = document.querySelector('.menu-productos');
-const categoriasCelular = document.querySelector('.categorias-celular');
-//HTML collection de todas las categorias
+
+//Constante menu de filtro por categoria
+const contenedorCategorias = document.querySelector('.contenedor__categorias');
+const categoriasModoCelular = document.querySelector('.categorias-celular');
 const listaCategorias = document.querySelectorAll('.categoria');
 
+//Constantes carrito de compras
+const iconoCarrito = document.querySelector('.iconCarrito');
+const contadorProductos = document.querySelector('.contador');
+const menuCarrito = document.querySelector('.carrito__menu');
+const productosCarrito = document.querySelector('.carrito__productos');
+const botonBorrar = document.querySelector('.boton-borrar');
+const botonComprar = document.querySelector('.boton-compra');
+const total = document.querySelector('.total');
 
-//Setear el array para el carrito
+//--- Array de productos para el carrito ---
 let carrito = JSON.parse(localStorage.getItem('carrito')) || [];
 
-// Funcion para guardar en el localstorage 
+//--- Guardar en LocalStorage los productos cargados en el carrito ---
 const saveLocalStorage = listaProductos => {
     localStorage.setItem('carrito', JSON.stringify(listaProductos)); 
     //Creamos una clave tasks para guardar los valores de la lista de tareas en forma de JSON.
 };
+
+
+//--- RENDERIZACION DE PRODUCTOS ---
 
 //Funcion para crear el HTML del producto.
 const renderProduct = (producto)=> {
     const {id, nombre, categoria,precio,img} = producto; //Desestructuro
     return `<div class="items" id=${id} categoria=${categoria}><img src="${img}"><div class="producto-texto"><h3>${nombre}</h3><p>Precio: <span class="precio">$${precio}</span></p></div><i class="fa-solid fa-cart-shopping agregarCarrito" data-id='${id}' data-nombre='${nombre}' data-precio='${precio}' data-img='${img}'></i></div>`
 };
-
 //Renderizo todos los productos 
 const renderAllProducts = (productos) => {
     contenedorProductos.innerHTML = productos.map(renderProduct).join('');//Con el metodo .join('') hago que el separador sea vacio, o sea que no haya separador.
@@ -49,7 +55,6 @@ const renderProducts = (categoria = undefined) => { //Render es un nombre que se
     };
     renderFilteredProducts(categoria); //Filtro por categoria
 };
-
 //Renderizo productos buscados
 const renderSearchedProducts = (categoria) =>{
     if (categoria.length == 0){
@@ -60,7 +65,9 @@ const renderSearchedProducts = (categoria) =>{
     contenedorBuscados.innerHTML = productList.map(renderProduct).join('');
 }
 
-//Logica de filtros 
+// --- Logica de filtros, por categoria seleccionada y busqueda ---
+
+//Cambiar el background-color si la categoria esta seleccionada.
 const cambiarEstadoListaActiva = (categoriaSeleccionada) => {
     const categorias = [...listaCategorias]; //Como es un HTML Collection lo transformo a array.
     categorias.forEach((listaActiva)=>{
@@ -71,10 +78,12 @@ const cambiarEstadoListaActiva = (categoriaSeleccionada) => {
         listaActiva.classList.add('active');
     });
 };
+//Guardar en una constante la categoria de la seleccion.
 const cambiarFiltroEstado = e=>{
     const categoriaSeleccionada = e.target.dataset.categoria; //Guardo la categoria del target
     cambiarEstadoListaActiva(categoriaSeleccionada);
 };
+//Filtrar productos segun el valor ingresado en el search del nav.
 const filtrarPorBusqueda = ()=>{
     const categoria = buscador.value.trim('');
     if (categoria.length >0){
@@ -90,6 +99,7 @@ const filtrarPorBusqueda = ()=>{
     }
     renderSearchedProducts(categoria);
 }
+//Aplicar filtro cambio de (background-color) al hacer click sobre el elemento seleccionado.
 const aplicarFiltro = e=>{
     if(!e.target.classList.contains('categoria'))return; //Si no contiene la clase categoria retornar.
     cambiarFiltroEstado(e);
@@ -102,9 +112,10 @@ const aplicarFiltro = e=>{
     }
 };
 
-//Abrir y cerrar el carrito/menu y mostrar el overlay
 
-//Abrir y cerrar menu con cambio de icono.
+//--- Abrir y cerrar el nav-menu, carrito y menu de categorias modo celular  ---
+
+//Abrir y cerrar nav-menu con cambio de icono.
 abrirNav.addEventListener('click', e =>{
     const seleccionado = Number(abrirNav.dataset.id);
     if(menuCarrito.classList.contains('open-cart')){
@@ -121,8 +132,8 @@ abrirNav.addEventListener('click', e =>{
         nav.classList.remove("visible");
     }
 });
-categoriasCelular.addEventListener('click',()=>{   
-    categorias.classList.toggle('show-overlay');
+categoriasModoCelular.addEventListener('click',()=>{   
+    contenedorCategorias.classList.toggle('show-overlay');
 });
 //Abrir y cerrar el carrito.
 const toggleCart = () => {
@@ -136,8 +147,10 @@ const toggleCart = () => {
     productosCarrito.classList.toggle('show-overlay');
 };
 
-//Logica del carrito
 
+//--- Renderizacion de los productos cargados en el carrito y logica del carrito ---
+
+// Creo el HTML del producto seleccionado obteniendo las propiedades del objeto con destruccturing
 const renderProductoCarrito = (producto)=>{
     const {id, nombre, categoria,precio,img,quantity} = producto; //Desestructuro
     return `<div class="carrito__items" id=${id} categoria=${categoria}>
@@ -155,6 +168,7 @@ const renderProductoCarrito = (producto)=>{
     </div>`
 };
 
+//Dibujo los productos del carrito, en caso de no haber, muestro texto indicandolo.
 const renderCarrito = (carrito) => {
     if(!carrito.length){
         productosCarrito.innerHTML = `<p class="empty-msg">No hay productos en el carrito.</p>`;
@@ -163,18 +177,24 @@ const renderCarrito = (carrito) => {
     productosCarrito.innerHTML = carrito.map(renderProductoCarrito).join('');
 };
 
+//Obtengo el valor final de la suma de todos los productos.
 const obtenerTotalCarrito = ()=>{
     return carrito.reduce((acc,cur)=>acc + Number(cur.precio) * cur.quantity,0);
 };
 
+//Renderizo el total 
 const mostrarTotal = ()=>{
     total.innerHTML = `${obtenerTotalCarrito().toFixed(2)}$`  //toFixed limita los decimales a dos.
 };
 
-const crearDataProducto = (id,nombre,precio,img)=>{ // A partir de los dataset que coloque en el boton agregar producto de cada producto.
+//A partir de los dataset que coloque en el boton agregar producto de cada producto, creo la data del producto agregado al carrito.
+const crearDataProducto = (id,nombre,precio,img)=>{ 
     return {id, nombre, precio,img};
 };
+
+//Analizo la existencia del producto en el carrito, en caso de coincidir, retorno el producto.
 const existeProductoEnCarrito = (producto)=>{
+    console.log(carrito.find((item)=>item.id === producto.id));
     return carrito.find((item)=>item.id === producto.id);
 };
 
@@ -185,18 +205,21 @@ const agregarUnidad = (producto)=>{
     })
 };
 
+//Redefinimos el arreglo carrito, pero agregandole el producto cargado con una propiedad extra que hace referencia a cantidad.
 const crearProductoCarrito = (producto) =>{
     carrito = [...carrito,{...producto,quantity: 1}]; //Agregamos al  arreglo carrito, el producto que creamos al obtener los dataset y ademas agregamos la propiedad quantity y la iniciamos en 1.
     console.log("Producto creado");
     console.log(carrito);
 };
+
+//Logica para añadir un producto al carrito al hacer click en el boton para aregar.
 const agregarProductoCarrito = e =>{
     if(carrito.length>3){
         alert("La cantidad maxima de productos distintos por compra es de 4.");
         return;
     }
     if(!e.target.classList.contains("agregarCarrito"))return;
-    const {id,nombre,precio,img} = e.target.dataset;
+    const {id,nombre,precio,img} = e.target.dataset; //Desestructuro los dataset del target, y los guardo en constantes
     const producto = crearDataProducto(id,nombre,precio,img);
 
     if (existeProductoEnCarrito(producto)){
@@ -204,13 +227,16 @@ const agregarProductoCarrito = e =>{
     }else {
         crearProductoCarrito(producto);
     }
-    checkEstadoCarrito();
+    checkEstadoCarrito(); //Basicamente, actualiza el contenido del carrito en caso de que haya cambios. 
 };
-//Quitar todos los productos
+
+//Quitar todos los productos del carrito, hago que sea igual a un array vacio.
 const resetearCarrito = ()=>{
     carrito = [];
     checkEstadoCarrito();
 };
+
+//Alerta que verifica si el usuario esta de acuerdo con eliminar los productos del carrito y permite aceptarlo.
 const completeCartAction = (confirmMsg, successMsg) => {
     if(!carrito.length) return;
     if(window.confirm(confirmMsg)) { //Muestra el mensaje y si tocamos confirmar en la ventana, entra en la condicion.
@@ -218,6 +244,8 @@ const completeCartAction = (confirmMsg, successMsg) => {
         alert(successMsg);
     }
 };
+
+//Le asigno una accion al boton para borrar los productos del carrito.
 const borrarCarrito = ()=>{
     completeCartAction("Desea vaciar el carrito?","No hay productos en el carrito.")
 };
@@ -228,7 +256,7 @@ const checkEstadoCarrito = () =>{
     const cantProductos = carrito.map((producto)=>producto.quantity);
     let total = 0;
     cantProductos.forEach((a)=> total+=a);
-    contadorHtml.innerHTML = `${total}`;  
+    contadorProductos.innerHTML = `${total}`;  
     renderCarrito(carrito);
     mostrarTotal();
 };
@@ -236,7 +264,7 @@ const checkEstadoCarrito = () =>{
 //Funcion inicializadora 
 const init = ()=>{
     renderProducts();
-    categorias.addEventListener('click',aplicarFiltro);
+    contenedorCategorias.addEventListener('click',aplicarFiltro);
     buscador.addEventListener('keyup',filtrarPorBusqueda);
     contenedorProductos.addEventListener('click',agregarProductoCarrito);
     iconoCarrito.addEventListener('click',toggleCart);
