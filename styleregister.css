@@ -40,7 +40,7 @@ main {
 .form__container p {
     color:grey;
     font-size:25px;
-    font-family:monospace;
+    font-family: sans-serif;
 }
 .form__input{
     width:350px;
@@ -87,6 +87,7 @@ main {
 
 @media (max-width: 750px) {
     .contenedor-rec {
+        top:0;
         width:100%;
     }
     .form__container {
