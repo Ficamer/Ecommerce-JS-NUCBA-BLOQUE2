@@ -1,0 +1,101 @@
+body {
+    padding:0;
+    margin:0;
+    height:100vh;
+    width:100%;
+    background-color:#e2e2e2;
+    user-select: none;
+    display:flex;
+    justify-content:center;
+}
+.nav {
+    position:fixed;
+    background-color:#1d294a;
+    width:100%;
+    height:50px;
+}
+main {
+    position:absolute;
+    top:50px;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    gap:25px;
+    width:95%;
+    height:100vh;
+}
+
+.form__container {
+    display:flex;
+    justify-content: center;
+    align-items:center;
+    flex-direction:column;
+    gap:10px;
+    background-color:#1d294a;
+    width:500px;
+    height:500px;
+    border-radius:8px;
+    
+}
+.form__container p {
+    color:grey;
+    font-size:25px;
+    font-family:monospace;
+}
+.form__input{
+    width:350px;
+    height:40px;
+    border:none;
+    border-radius:8px;
+    background:black;
+    padding: 0px 15px;
+    color:rgb(204, 195, 195);
+}
+.form__field {
+    display:flex;
+    flex-direction:column;
+}
+.form__submit__btn {
+    width:100px;
+    border:none;
+    padding: 10px 10px;
+    border-radius:3px;
+    background-color:rgb(235, 232, 51);
+    cursor:pointer;
+    font-weight:600;
+    color:rgb(99, 97, 97);
+}
+.form__submit__btn:hover {
+    transition:.2s;
+    background-color:rgb(250, 135, 3);
+}
+
+/* Error / Success */
+.form__field.error input {
+    border: 1px solid red;
+}
+.form__Field small {
+    color:red;
+    max-width:350px;
+    text-align:center;
+    padding: 7px 0;
+}
+
+.form__field.success input {
+    border:1px solid green;
+}
+
+@media (max-width: 750px) {
+    .contenedor-rec {
+        width:100%;
+    }
+    .form__container {
+        width:95%;
+    }
+    .form__field{
+        width:80%;
+    }
+    .form__input {
+        width:100%;
+    }
+}
