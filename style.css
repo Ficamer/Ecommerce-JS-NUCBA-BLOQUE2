@@ -425,13 +425,11 @@ main {
     }
     .contenedor-buscados {
         position:fixed;
-        display:flex;
         left:0;
         top:60px;
         width:100%;
     }
     .productos-buscados{
-        display:flex;
         align-items:center;
         justify-content: center;
         width:90%;
