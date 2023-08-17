@@ -309,6 +309,7 @@ const init = ()=>{
     renderProducts();
     contenedorCategorias.addEventListener('click',aplicarFiltro);
     buscador.addEventListener('keyup',filtrarPorBusqueda);
+    contenedorBuscados.addEventListener('click',agregarProductoCarrito);
     contenedorProductos.addEventListener('click',agregarProductoCarrito);
     iconoCarrito.addEventListener('click',toggleCart);
     document.addEventListener('DOMContentLoaded',checkEstadoCarrito);
