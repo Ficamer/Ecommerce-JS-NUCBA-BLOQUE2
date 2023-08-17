@@ -1,4 +1,4 @@
-Proyecto de ecommerce en proceso, con la incorporacion de carrito con funcionalidades mediante JS y almacenamiento local.
+Proyecto final de modulo JS en NUCBA. Se trata de un ecommerce, con la incorporacion de carrito con funcionalidades mediante JS y almacenamiento local.
 
 Visualizacion PC:
 ![imagen](https://github.com/Ficamer/Ecommerce-JS-NUCBA-BLOQUE2/assets/75806215/36ad7b8b-39ef-4d97-a3c2-a98548d5493d)
