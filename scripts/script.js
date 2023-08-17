@@ -163,7 +163,7 @@ const renderProductoCarrito = (producto)=>{
     <div class="item-handler">
         <span class="quantity-handler down" data-id=${id}>-</span>
         <span class="item-quantity">${quantity}</span>
-        <span class="quantity-handler up" data-id=${id}></span>
+        <span class="quantity-handler up" data-id=${id}>+</span>
     </div>
     </div>`
 };
@@ -249,7 +249,50 @@ const completeCartAction = (confirmMsg, successMsg) => {
 const borrarCarrito = ()=>{
     completeCartAction("Desea vaciar el carrito?","No hay productos en el carrito.")
 };
+//Resto una unidad al producto.
+const restarUnidadProducto = (productoExistente) => {
+    carrito = carrito.map(producto => {
+        return producto.id === productoExistente.id ? {...producto,quantity: Number(producto.quantity) - 1} : producto;
+    })
+}
 
+//Elimino producto del carrito
+const removerProductoDelCarrito = (productoExistente)=>{
+
+    carrito = carrito.filter(producto => producto.id !== productoExistente.id); //Filtrame todos los productos que no se correspondan con el ID del producto que quiero quitar.
+    checkEstadoCarrito();
+}
+
+//Evento boton restar
+const  eventoBotonRestar = (id)=>{
+    const productoCarritoExistente = carrito.find((item)=>item.id === id); // busco el producto que coincide con el id
+    if(productoCarritoExistente.quantity ===1){
+        if(window.confirm("Desea eliminar el producto del carrito")){
+            //borrar producto
+            console.log("hola");
+            removerProductoDelCarrito(productoCarritoExistente);
+        }
+        return; //evito que no me quite la unidad.
+    }
+    restarUnidadProducto(productoCarritoExistente);
+}
+
+//Evento boton sumar
+const  eventoBotonSumar = (id)=>{
+    const productoCarritoExistente = carrito.find((item)=>item.id === id); // busco el producto que coincide con el id
+    agregarUnidad(productoCarritoExistente);
+}
+
+//Manejar cantidad de un producto
+const manejarCantidad = (e) => {
+    if(e.target.classList.contains("down")){
+        eventoBotonRestar(e.target.dataset.id);
+    }
+    else if(e.target.classList.contains("up")){
+        eventoBotonSumar(e.target.dataset.id);
+    }
+    checkEstadoCarrito();
+}
 //Checkeo el estado del carrito
 const checkEstadoCarrito = () =>{
     saveLocalStorage(carrito);
@@ -270,6 +313,7 @@ const init = ()=>{
     iconoCarrito.addEventListener('click',toggleCart);
     document.addEventListener('DOMContentLoaded',checkEstadoCarrito);
     botonBorrar.addEventListener('click',borrarCarrito);
+    productosCarrito.addEventListener('click', manejarCantidad);
 };
 
 init();

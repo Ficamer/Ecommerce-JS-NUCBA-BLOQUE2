@@ -314,6 +314,10 @@ main {
     border:2px solid #90b4ce;
     background-color:inherit;
 }
+.item-handler {
+    display:flex;
+    flex-direction:column;
+}
 .empty-msg {
     font-size:15px;
     color:white;
