@@ -21,6 +21,9 @@ const botonBorrar = document.querySelector('.boton-borrar');
 const botonComprar = document.querySelector('.boton-compra');
 const total = document.querySelector('.total');
 
+//Constante modal
+const modal = document.querySelector('.ventana-modal');
+
 //--- Array de productos para el carrito ---
 let carrito = JSON.parse(localStorage.getItem('carrito')) || [];
 
@@ -30,6 +33,11 @@ const saveLocalStorage = listaProductos => {
     //Creamos una clave tasks para guardar los valores de la lista de tareas en forma de JSON.
 };
 
+//--- Modales ---
+const modalProductoAgregado = ()=> {
+    modal.style.display="flex";
+    setTimeout(()=>modal.style.display="none",1000);
+}
 
 //--- RENDERIZACION DE PRODUCTOS ---
 
@@ -224,8 +232,10 @@ const agregarProductoCarrito = e =>{
 
     if (existeProductoEnCarrito(producto)){
         agregarUnidad(producto);
+        modalProductoAgregado();
     }else {
         crearProductoCarrito(producto);
+        modalProductoAgregado();
     }
     checkEstadoCarrito(); //Basicamente, actualiza el contenido del carrito en caso de que haya cambios. 
 };
