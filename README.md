@@ -1,4 +1,4 @@
-Proyecto final de modulo JS en NUCBA. Se trata de un ecommerce, con la incorporacion de carrito con funcionalidades mediante JS y almacenamiento local.
+Proyecto final del módulo de JavaScript en NUCBA: un e-commerce dinámico con un carrito de compras completamente funcional. Implementado con JavaScript, el carrito permite agregar, quitar y modificar productos, conservando los datos en el almacenamiento local (LocalStorage).
 
 Visualizacion PC:
 ![imagen](https://github.com/Ficamer/Ecommerce-JS-NUCBA-BLOQUE2/assets/75806215/36ad7b8b-39ef-4d97-a3c2-a98548d5493d)
