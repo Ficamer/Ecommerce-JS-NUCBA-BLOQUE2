@@ -4,24 +4,53 @@ on:
   push:
     branches:
       - master
+  workflow_dispatch:
+    inputs:
+      display_version:
+        description: Optional version name, for example 0.0.1-version
+        required: false
+        type: string
 
 permissions:
   contents: read
 
 jobs:
   checks:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.DEPLOY_MANAGER_RUNNER || 'ubuntu-latest' }}
     permissions:
       contents: read
     steps:
       - name: Check out the exact commit
         uses: actions/checkout@v6
-      - name: Note static site checks
-        run: echo "Static HTML/CSS/JavaScript project; no package lock or automated checks are configured."
+
+      - name: Validate manually selected branch
+        if: ${{ github.event_name == 'workflow_dispatch' && github.ref_name != 'master' }}
+        run: exit 1
+
+      - name: Install locked Node dependencies and run repository checks
+        shell: bash
+        run: |
+          if [[ -f pnpm-lock.yaml ]]; then
+            corepack enable
+            pnpm install --frozen-lockfile
+            if node -e "process.exit(require('./package.json').scripts?.lint ? 0 : 1)"; then pnpm run lint; fi
+            if node -e "process.exit(require('./package.json').scripts?.test ? 0 : 1)"; then pnpm run test; fi
+          elif [[ -f package-lock.json ]]; then
+            npm ci
+            npm run lint --if-present
+            npm run test --if-present
+          elif [[ -f yarn.lock ]]; then
+            corepack enable
+            yarn install --immutable
+            if node -e "process.exit(require('./package.json').scripts?.lint ? 0 : 1)"; then yarn run lint; fi
+            if node -e "process.exit(require('./package.json').scripts?.test ? 0 : 1)"; then yarn run test; fi
+          else
+            echo 'No supported Node lockfile found; add this repository language test steps to the checks job.'
+          fi
 
   build-and-publish:
     needs: checks
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.DEPLOY_MANAGER_RUNNER || 'ubuntu-latest' }}
     permissions:
       contents: read
       packages: write
@@ -53,27 +82,104 @@ jobs:
           images: ${{ steps.image.outputs.reference }}
           tags: |
             type=sha,format=long
+            type=raw,value=${{ inputs.display_version }},enable=${{ inputs.display_version != '' }}
 
       - name: Build and publish image
         id: push
         uses: docker/build-push-action@v7
         with:
-          context: .
-          file: ./Dockerfile
+          context: ${{ vars.DEPLOY_MANAGER_BUILD_CONTEXT || '.' }}
+          file: ${{ vars.DEPLOY_MANAGER_DOCKERFILE || 'Dockerfile' }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-      - name: Report digest for local Deploy Manager
+      - name: Report build result to Deploy Manager
+        if: always()
         env:
-          IMAGE_REFERENCE: ${{ steps.image.outputs.reference }}
+          MANAGER_URL: ${{ vars.DEPLOY_MANAGER_URL }}
+          APPLICATION_ID: ${{ vars.DEPLOY_MANAGER_APPLICATION_ID }}
+          CALLBACK_TOKEN: ${{ secrets.DEPLOY_MANAGER_BUILD_TOKEN }}
+          BUILD_STATUS: ${{ job.status }}
           IMAGE_DIGEST: ${{ steps.push.outputs.digest }}
           COMMIT_SHA: ${{ github.sha }}
+          BRANCH_NAME: ${{ github.ref_name }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          IMAGE_REFERENCE: ${{ steps.image.outputs.reference }}
+          DISPLAY_VERSION: ${{ inputs.display_version }}
+          RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        shell: bash
         run: |
-          {
-            echo '## Deploy Manager: registro manual requerido'
-            echo "Imagen: \`${IMAGE_REFERENCE}\`"
-            echo "Digest: \`${IMAGE_DIGEST}\`"
-            echo "Commit: \`${COMMIT_SHA}\`"
-            echo 'Copiá el SHA y el digest en Versions → Registrar digest manual.'
-          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ -z "$MANAGER_URL" || -z "$APPLICATION_ID" || -z "$CALLBACK_TOKEN" ]]; then
+            {
+              echo '## Deploy Manager: registro manual requerido'
+              echo "Imagen: \`${IMAGE_REFERENCE}\`"
+              echo "Digest: \`${IMAGE_DIGEST:-no disponible}\`"
+              echo "Commit: \`${COMMIT_SHA}\`"
+              echo 'La API no tiene una URL HTTPS configurada para recibir el callback. RegistrÃƒÂ¡ el digest desde el panel local.'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          if [[ "$MANAGER_URL" != https://* ]] && ! { [[ "$RUNNER_ENVIRONMENT" == 'self-hosted' ]] && [[ "$MANAGER_URL" =~ ^http://(localhost|127\.0\.0\.1)(:[0-9]+)?(/|$) ]]; }; then
+            echo 'UsÃƒÂ¡ HTTPS con GitHub-hosted runners o http://localhost con un runner self-hosted local.' >&2
+            exit 1
+          fi
+
+          result='success'
+          [[ "$BUILD_STATUS" == 'success' ]] || result='failure'
+          payload=$(node -e '
+            const [commitSha, branch, workflowRunId, attempt, buildRunUrl, status, imageDigest, displayVersion] = process.argv.slice(1);
+            const payload = { commitSha, branch, workflowRunId, workflowAttempt: Number(attempt), buildRunUrl, status };
+            if (imageDigest) payload.imageDigest = imageDigest;
+            if (displayVersion) payload.displayVersion = displayVersion;
+            process.stdout.write(JSON.stringify(payload));
+          ' "$COMMIT_SHA" "$BRANCH_NAME" "$RUN_ID" "$RUN_ATTEMPT" "$RUN_URL" "$result" "$IMAGE_DIGEST" "$DISPLAY_VERSION")
+
+          curl --fail --silent --show-error \
+            --request POST "$MANAGER_URL/integrations/build-callback" \
+            --header "Authorization: Bearer $CALLBACK_TOKEN" \
+            --header "X-Application-Id: $APPLICATION_ID" \
+            --header 'Content-Type: application/json' \
+            --data "$payload"
+
+  report-check-failure:
+    if: ${{ always() && needs.checks.result == 'failure' }}
+    needs: checks
+    runs-on: ${{ vars.DEPLOY_MANAGER_RUNNER || 'ubuntu-latest' }}
+    permissions:
+      contents: read
+    steps:
+      - name: Report failed checks when the callback is configured
+        env:
+          MANAGER_URL: ${{ vars.DEPLOY_MANAGER_URL }}
+          APPLICATION_ID: ${{ vars.DEPLOY_MANAGER_APPLICATION_ID }}
+          CALLBACK_TOKEN: ${{ secrets.DEPLOY_MANAGER_BUILD_TOKEN }}
+          COMMIT_SHA: ${{ github.sha }}
+          BRANCH_NAME: ${{ github.ref_name }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        shell: bash
+        run: |
+          if [[ -z "$MANAGER_URL" || -z "$APPLICATION_ID" || -z "$CALLBACK_TOKEN" ]]; then
+            echo 'Checks failed; automatic callback is not configured.'
+            exit 0
+          fi
+          if [[ "$MANAGER_URL" != https://* ]] && ! { [[ "$RUNNER_ENVIRONMENT" == 'self-hosted' ]] && [[ "$MANAGER_URL" =~ ^http://(localhost|127\.0\.0\.1)(:[0-9]+)?(/|$) ]]; }; then
+            echo 'Use HTTPS with GitHub-hosted runners or http://localhost with a local self-hosted runner.' >&2
+            exit 1
+          fi
+          payload=$(node -e '
+            const [commitSha, branch, workflowRunId, attempt, buildRunUrl] = process.argv.slice(1);
+            process.stdout.write(JSON.stringify({ commitSha, branch, workflowRunId, workflowAttempt: Number(attempt), buildRunUrl, status: "failure" }));
+          ' "$COMMIT_SHA" "$BRANCH_NAME" "$RUN_ID" "$RUN_ATTEMPT" "$RUN_URL")
+          curl --fail --silent --show-error \
+            --request POST "$MANAGER_URL/integrations/build-callback" \
+            --header "Authorization: Bearer $CALLBACK_TOKEN" \
+            --header "X-Application-Id: $APPLICATION_ID" \
+            --header 'Content-Type: application/json' \
+            --data "$payload"
