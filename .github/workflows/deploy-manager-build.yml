@@ -3,7 +3,9 @@ name: Deploy Manager image build
 on:
   push:
     branches:
-      - master
+      - main # Keep these entries aligned with the enabled branch patterns in Deploy Manager.
+  pull_request:
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
     inputs:
       display_version:
@@ -16,16 +18,12 @@ permissions:
 
 jobs:
   checks:
-    runs-on: ${{ vars.DEPLOY_MANAGER_RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-latest' || vars.DEPLOY_MANAGER_RUNNER || 'ubuntu-latest' }}
     permissions:
       contents: read
     steps:
       - name: Check out the exact commit
         uses: actions/checkout@v6
-
-      - name: Validate manually selected branch
-        if: ${{ github.event_name == 'workflow_dispatch' && github.ref_name != 'master' }}
-        run: exit 1
 
       - name: Install locked Node dependencies and run repository checks
         shell: bash
@@ -49,6 +47,7 @@ jobs:
           fi
 
   build-and-publish:
+    if: ${{ github.event_name != 'pull_request' || (startsWith(github.head_ref, 'release/') && github.event.pull_request.head.repo.full_name == github.repository) }}
     needs: checks
     runs-on: ${{ vars.DEPLOY_MANAGER_RUNNER || 'ubuntu-latest' }}
     permissions:
@@ -57,9 +56,38 @@ jobs:
     env:
       REGISTRY: ghcr.io
       CONFIGURED_IMAGE: ${{ vars.DEPLOY_MANAGER_IMAGE_REPOSITORY || github.repository }}
+      SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+      SOURCE_BRANCH: ${{ github.head_ref || github.ref_name }}
     steps:
       - name: Check out the exact commit
         uses: actions/checkout@v6
+        with:
+          ref: ${{ env.SOURCE_COMMIT }}
+
+      - name: Resolve version name
+        id: version
+        shell: bash
+        env:
+          SOURCE_BRANCH: ${{ env.SOURCE_BRANCH }}
+          INPUT_VERSION: ${{ inputs.display_version }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          display_version="$INPUT_VERSION"
+          if [[ -z "$display_version" && "$SOURCE_BRANCH" == release/* ]]; then
+            candidate_name="${SOURCE_BRANCH#release/}"
+            candidate_name="${candidate_name,,}"
+            candidate_name="$(printf '%s' "$candidate_name" | sed -E 's/[^a-z0-9._-]+/-/g; s/-+/-/g; s/^[.-]+//; s/[.-]+$//')"
+            if [[ -z "$candidate_name" ]]; then
+              echo "La rama release debe incluir un nombre, por ejemplo release/funcionalidad-nueva; recibida: $SOURCE_BRANCH" >&2
+              exit 1
+            fi
+            display_version="${candidate_name:0:90}-rc-${RUN_NUMBER}"
+          fi
+          if [[ -n "$display_version" && ! "$display_version" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,119}$ ]]; then
+            echo 'El nombre de versión no es válido como etiqueta de imagen.' >&2
+            exit 1
+          fi
+          echo "display_version=$display_version" >> "$GITHUB_OUTPUT"
 
       - name: Resolve GHCR image path
         id: image
@@ -82,7 +110,7 @@ jobs:
           images: ${{ steps.image.outputs.reference }}
           tags: |
             type=sha,format=long
-            type=raw,value=${{ inputs.display_version }},enable=${{ inputs.display_version != '' }}
+            type=raw,value=${{ steps.version.outputs.display_version }},enable=${{ steps.version.outputs.display_version != '' }}
 
       - name: Build and publish image
         id: push
@@ -102,29 +130,23 @@ jobs:
           CALLBACK_TOKEN: ${{ secrets.DEPLOY_MANAGER_BUILD_TOKEN }}
           BUILD_STATUS: ${{ job.status }}
           IMAGE_DIGEST: ${{ steps.push.outputs.digest }}
-          COMMIT_SHA: ${{ github.sha }}
-          BRANCH_NAME: ${{ github.ref_name }}
+          COMMIT_SHA: ${{ env.SOURCE_COMMIT }}
+          BRANCH_NAME: ${{ env.SOURCE_BRANCH }}
           RUN_ID: ${{ github.run_id }}
           RUN_ATTEMPT: ${{ github.run_attempt }}
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           IMAGE_REFERENCE: ${{ steps.image.outputs.reference }}
-          DISPLAY_VERSION: ${{ inputs.display_version }}
+          DISPLAY_VERSION: ${{ steps.version.outputs.display_version }}
           RUNNER_ENVIRONMENT: ${{ runner.environment }}
         shell: bash
         run: |
           if [[ -z "$MANAGER_URL" || -z "$APPLICATION_ID" || -z "$CALLBACK_TOKEN" ]]; then
-            {
-              echo '## Deploy Manager: registro manual requerido'
-              echo "Imagen: \`${IMAGE_REFERENCE}\`"
-              echo "Digest: \`${IMAGE_DIGEST:-no disponible}\`"
-              echo "Commit: \`${COMMIT_SHA}\`"
-              echo 'La API no tiene una URL HTTPS configurada para recibir el callback. RegistrÃƒÂ¡ el digest desde el panel local.'
-            } >> "$GITHUB_STEP_SUMMARY"
-            exit 0
+            echo 'Configurá DEPLOY_MANAGER_URL, DEPLOY_MANAGER_APPLICATION_ID y DEPLOY_MANAGER_BUILD_TOKEN para registrar la Version automáticamente.' >&2
+            exit 1
           fi
 
           if [[ "$MANAGER_URL" != https://* ]] && ! { [[ "$RUNNER_ENVIRONMENT" == 'self-hosted' ]] && [[ "$MANAGER_URL" =~ ^http://(localhost|127\.0\.0\.1)(:[0-9]+)?(/|$) ]]; }; then
-            echo 'UsÃƒÂ¡ HTTPS con GitHub-hosted runners o http://localhost con un runner self-hosted local.' >&2
+            echo 'Usá HTTPS con GitHub-hosted runners o http://localhost con un runner self-hosted local.' >&2
             exit 1
           fi
 
@@ -146,7 +168,7 @@ jobs:
             --data "$payload"
 
   report-check-failure:
-    if: ${{ always() && needs.checks.result == 'failure' }}
+    if: ${{ always() && needs.checks.result == 'failure' && (github.event_name != 'pull_request' || (startsWith(github.head_ref, 'release/') && github.event.pull_request.head.repo.full_name == github.repository)) }}
     needs: checks
     runs-on: ${{ vars.DEPLOY_MANAGER_RUNNER || 'ubuntu-latest' }}
     permissions:
@@ -157,8 +179,8 @@ jobs:
           MANAGER_URL: ${{ vars.DEPLOY_MANAGER_URL }}
           APPLICATION_ID: ${{ vars.DEPLOY_MANAGER_APPLICATION_ID }}
           CALLBACK_TOKEN: ${{ secrets.DEPLOY_MANAGER_BUILD_TOKEN }}
-          COMMIT_SHA: ${{ github.sha }}
-          BRANCH_NAME: ${{ github.ref_name }}
+          COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
           RUN_ID: ${{ github.run_id }}
           RUN_ATTEMPT: ${{ github.run_attempt }}
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
