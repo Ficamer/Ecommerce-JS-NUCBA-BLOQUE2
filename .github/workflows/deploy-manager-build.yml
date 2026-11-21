@@ -1,0 +1,79 @@
+name: Deploy Manager image build
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the exact commit
+        uses: actions/checkout@v6
+      - name: Note static site checks
+        run: echo "Static HTML/CSS/JavaScript project; no package lock or automated checks are configured."
+
+  build-and-publish:
+    needs: checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      REGISTRY: ghcr.io
+      CONFIGURED_IMAGE: ${{ vars.DEPLOY_MANAGER_IMAGE_REPOSITORY || github.repository }}
+    steps:
+      - name: Check out the exact commit
+        uses: actions/checkout@v6
+
+      - name: Resolve GHCR image path
+        id: image
+        shell: bash
+        run: |
+          image_name="${CONFIGURED_IMAGE,,}"
+          echo "reference=${REGISTRY}/${image_name}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create immutable commit tag
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ steps.image.outputs.reference }}
+          tags: |
+            type=sha,format=long
+
+      - name: Build and publish image
+        id: push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Report digest for local Deploy Manager
+        env:
+          IMAGE_REFERENCE: ${{ steps.image.outputs.reference }}
+          IMAGE_DIGEST: ${{ steps.push.outputs.digest }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          {
+            echo '## Deploy Manager: registro manual requerido'
+            echo "Imagen: \`${IMAGE_REFERENCE}\`"
+            echo "Digest: \`${IMAGE_DIGEST}\`"
+            echo "Commit: \`${COMMIT_SHA}\`"
+            echo 'Copiá el SHA y el digest en Versions → Registrar digest manual.'
+          } >> "$GITHUB_STEP_SUMMARY"
