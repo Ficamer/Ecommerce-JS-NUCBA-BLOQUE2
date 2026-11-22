@@ -26,7 +26,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Install locked Node dependencies and run repository checks
-        shell: pwsh
+        shell: ${{ runner.os == 'Windows' && 'powershell' || 'pwsh' }}
         run: |
           function Invoke-CheckedCommand {
             param([string]$Command, [string[]]$Arguments)
@@ -76,7 +76,7 @@ jobs:
 
       - name: Resolve version name
         id: version
-        shell: pwsh
+        shell: ${{ runner.os == 'Windows' && 'powershell' || 'pwsh' }}
         env:
           SOURCE_BRANCH: ${{ env.SOURCE_BRANCH }}
           INPUT_VERSION: ${{ inputs.display_version }}
@@ -100,7 +100,7 @@ jobs:
 
       - name: Resolve GHCR image path
         id: image
-        shell: pwsh
+        shell: ${{ runner.os == 'Windows' && 'powershell' || 'pwsh' }}
         run: |
           $imageName = $env:CONFIGURED_IMAGE.ToLowerInvariant()
           [System.IO.File]::AppendAllText($env:GITHUB_OUTPUT, "reference=$($env:REGISTRY)/$imageName`n", [System.Text.UTF8Encoding]::new($false))
@@ -147,7 +147,7 @@ jobs:
           IMAGE_REFERENCE: ${{ steps.image.outputs.reference }}
           DISPLAY_VERSION: ${{ steps.version.outputs.display_version }}
           RUNNER_ENVIRONMENT: ${{ runner.environment }}
-        shell: pwsh
+        shell: ${{ runner.os == 'Windows' && 'powershell' || 'pwsh' }}
         run: |
           if ([string]::IsNullOrWhiteSpace($env:MANAGER_URL) -or [string]::IsNullOrWhiteSpace($env:APPLICATION_ID) -or [string]::IsNullOrWhiteSpace($env:CALLBACK_TOKEN)) {
             throw 'Configurá DEPLOY_MANAGER_URL, DEPLOY_MANAGER_APPLICATION_ID y DEPLOY_MANAGER_BUILD_TOKEN para registrar la versión automáticamente.'
@@ -190,7 +190,7 @@ jobs:
           RUN_ATTEMPT: ${{ github.run_attempt }}
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           RUNNER_ENVIRONMENT: ${{ runner.environment }}
-        shell: pwsh
+        shell: ${{ runner.os == 'Windows' && 'powershell' || 'pwsh' }}
         run: |
           if ([string]::IsNullOrWhiteSpace($env:MANAGER_URL) -or [string]::IsNullOrWhiteSpace($env:APPLICATION_ID) -or [string]::IsNullOrWhiteSpace($env:CALLBACK_TOKEN)) {
             Write-Output 'Checks failed; automatic callback is not configured.'
