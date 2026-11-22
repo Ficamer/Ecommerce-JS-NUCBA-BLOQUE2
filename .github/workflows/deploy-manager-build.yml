@@ -210,3 +210,5 @@ jobs:
           }
           $headers = @{ Authorization = "Bearer $env:CALLBACK_TOKEN"; 'X-Application-Id' = $env:APPLICATION_ID }
           Invoke-RestMethod -Method Post -Uri "$($env:MANAGER_URL)/integrations/build-callback" -Headers $headers -ContentType 'application/json' -Body ($payload | ConvertTo-Json -Compress)
+
+# The configured local runner for this test uses Windows PowerShell.
