@@ -147,7 +147,7 @@ jobs:
           IMAGE_REFERENCE: ${{ steps.image.outputs.reference }}
           DISPLAY_VERSION: ${{ steps.version.outputs.display_version }}
           RUNNER_ENVIRONMENT: ${{ runner.environment }}
-        shell: ${{ runner.os == 'Windows' && 'powershell' || 'pwsh' }}
+        shell: powershell
         run: |
           if ([string]::IsNullOrWhiteSpace($env:MANAGER_URL) -or [string]::IsNullOrWhiteSpace($env:APPLICATION_ID) -or [string]::IsNullOrWhiteSpace($env:CALLBACK_TOKEN)) {
             throw 'Configurá DEPLOY_MANAGER_URL, DEPLOY_MANAGER_APPLICATION_ID y DEPLOY_MANAGER_BUILD_TOKEN para registrar la versión automáticamente.'
@@ -210,5 +210,3 @@ jobs:
           }
           $headers = @{ Authorization = "Bearer $env:CALLBACK_TOKEN"; 'X-Application-Id' = $env:APPLICATION_ID }
           Invoke-RestMethod -Method Post -Uri "$($env:MANAGER_URL)/integrations/build-callback" -Headers $headers -ContentType 'application/json' -Body ($payload | ConvertTo-Json -Compress)
-
-# The configured local runner for this test uses Windows PowerShell.
