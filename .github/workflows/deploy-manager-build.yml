@@ -26,25 +26,35 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Install locked Node dependencies and run repository checks
-        shell: bash
+        shell: pwsh
         run: |
-          if [[ -f pnpm-lock.yaml ]]; then
-            corepack enable
-            pnpm install --frozen-lockfile
-            if node -e "process.exit(require('./package.json').scripts?.lint ? 0 : 1)"; then pnpm run lint; fi
-            if node -e "process.exit(require('./package.json').scripts?.test ? 0 : 1)"; then pnpm run test; fi
-          elif [[ -f package-lock.json ]]; then
-            npm ci
-            npm run lint --if-present
-            npm run test --if-present
-          elif [[ -f yarn.lock ]]; then
-            corepack enable
-            yarn install --immutable
-            if node -e "process.exit(require('./package.json').scripts?.lint ? 0 : 1)"; then yarn run lint; fi
-            if node -e "process.exit(require('./package.json').scripts?.test ? 0 : 1)"; then yarn run test; fi
-          else
-            echo 'No supported Node lockfile found; add this repository language test steps to the checks job.'
-          fi
+          function Invoke-CheckedCommand {
+            param([string]$Command, [string[]]$Arguments)
+            & $Command @Arguments
+            if ($LASTEXITCODE -ne 0) { throw "$Command failed with exit code $LASTEXITCODE" }
+          }
+
+          if (Test-Path 'pnpm-lock.yaml') {
+            Invoke-CheckedCommand 'corepack' @('enable')
+            Invoke-CheckedCommand 'pnpm' @('install', '--frozen-lockfile')
+            node -e "process.exit(require('./package.json').scripts?.lint ? 0 : 1)"
+            if ($LASTEXITCODE -eq 0) { Invoke-CheckedCommand 'pnpm' @('run', 'lint') }
+            node -e "process.exit(require('./package.json').scripts?.test ? 0 : 1)"
+            if ($LASTEXITCODE -eq 0) { Invoke-CheckedCommand 'pnpm' @('run', 'test') }
+          } elseif (Test-Path 'package-lock.json') {
+            Invoke-CheckedCommand 'npm' @('ci')
+            Invoke-CheckedCommand 'npm' @('run', 'lint', '--if-present')
+            Invoke-CheckedCommand 'npm' @('run', 'test', '--if-present')
+          } elseif (Test-Path 'yarn.lock') {
+            Invoke-CheckedCommand 'corepack' @('enable')
+            Invoke-CheckedCommand 'yarn' @('install', '--immutable')
+            node -e "process.exit(require('./package.json').scripts?.lint ? 0 : 1)"
+            if ($LASTEXITCODE -eq 0) { Invoke-CheckedCommand 'yarn' @('run', 'lint') }
+            node -e "process.exit(require('./package.json').scripts?.test ? 0 : 1)"
+            if ($LASTEXITCODE -eq 0) { Invoke-CheckedCommand 'yarn' @('run', 'test') }
+          } else {
+            Write-Output 'No supported Node lockfile found; add this repository language test steps to the checks job.'
+          }
 
   build-and-publish:
     if: ${{ github.event_name != 'pull_request' || (startsWith(github.head_ref, 'release/') && github.event.pull_request.head.repo.full_name == github.repository) }}
@@ -66,35 +76,34 @@ jobs:
 
       - name: Resolve version name
         id: version
-        shell: bash
+        shell: pwsh
         env:
           SOURCE_BRANCH: ${{ env.SOURCE_BRANCH }}
           INPUT_VERSION: ${{ inputs.display_version }}
           RUN_NUMBER: ${{ github.run_number }}
         run: |
-          display_version="$INPUT_VERSION"
-          if [[ -z "$display_version" && "$SOURCE_BRANCH" == release/* ]]; then
-            candidate_name="${SOURCE_BRANCH#release/}"
-            candidate_name="${candidate_name,,}"
-            candidate_name="$(printf '%s' "$candidate_name" | sed -E 's/[^a-z0-9._-]+/-/g; s/-+/-/g; s/^[.-]+//; s/[.-]+$//')"
-            if [[ -z "$candidate_name" ]]; then
-              echo "La rama release debe incluir un nombre, por ejemplo release/funcionalidad-nueva; recibida: $SOURCE_BRANCH" >&2
-              exit 1
-            fi
-            display_version="${candidate_name:0:90}-rc-${RUN_NUMBER}"
-          fi
-          if [[ -n "$display_version" && ! "$display_version" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,119}$ ]]; then
-            echo 'El nombre de versión no es válido como etiqueta de imagen.' >&2
-            exit 1
-          fi
-          echo "display_version=$display_version" >> "$GITHUB_OUTPUT"
+          $displayVersion = $env:INPUT_VERSION
+          if ([string]::IsNullOrWhiteSpace($displayVersion) -and $env:SOURCE_BRANCH.StartsWith('release/')) {
+            $candidateName = $env:SOURCE_BRANCH.Substring('release/'.Length).ToLowerInvariant()
+            $candidateName = [regex]::Replace($candidateName, '[^a-z0-9._-]+', '-')
+            $candidateName = [regex]::Replace($candidateName, '-+', '-').Trim('.','-')
+            if ([string]::IsNullOrWhiteSpace($candidateName)) {
+              throw "La rama release debe incluir un nombre, por ejemplo release/funcionalidad-nueva; recibida: $env:SOURCE_BRANCH"
+            }
+            $candidateName = $candidateName.Substring(0, [Math]::Min(90, $candidateName.Length))
+            $displayVersion = "$candidateName-rc-$env:RUN_NUMBER"
+          }
+          if (-not [string]::IsNullOrWhiteSpace($displayVersion) -and $displayVersion -notmatch '^[A-Za-z0-9_][A-Za-z0-9_.-]{0,119}$') {
+            throw 'El nombre de versión no es válido como etiqueta de imagen.'
+          }
+          [System.IO.File]::AppendAllText($env:GITHUB_OUTPUT, "display_version=$displayVersion`n", [System.Text.UTF8Encoding]::new($false))
 
       - name: Resolve GHCR image path
         id: image
-        shell: bash
+        shell: pwsh
         run: |
-          image_name="${CONFIGURED_IMAGE,,}"
-          echo "reference=${REGISTRY}/${image_name}" >> "$GITHUB_OUTPUT"
+          $imageName = $env:CONFIGURED_IMAGE.ToLowerInvariant()
+          [System.IO.File]::AppendAllText($env:GITHUB_OUTPUT, "reference=$($env:REGISTRY)/$imageName`n", [System.Text.UTF8Encoding]::new($false))
 
       - name: Log in to GHCR
         uses: docker/login-action@v4
@@ -138,34 +147,30 @@ jobs:
           IMAGE_REFERENCE: ${{ steps.image.outputs.reference }}
           DISPLAY_VERSION: ${{ steps.version.outputs.display_version }}
           RUNNER_ENVIRONMENT: ${{ runner.environment }}
-        shell: bash
+        shell: pwsh
         run: |
-          if [[ -z "$MANAGER_URL" || -z "$APPLICATION_ID" || -z "$CALLBACK_TOKEN" ]]; then
-            echo 'Configurá DEPLOY_MANAGER_URL, DEPLOY_MANAGER_APPLICATION_ID y DEPLOY_MANAGER_BUILD_TOKEN para registrar la Version automáticamente.' >&2
-            exit 1
-          fi
+          if ([string]::IsNullOrWhiteSpace($env:MANAGER_URL) -or [string]::IsNullOrWhiteSpace($env:APPLICATION_ID) -or [string]::IsNullOrWhiteSpace($env:CALLBACK_TOKEN)) {
+            throw 'Configurá DEPLOY_MANAGER_URL, DEPLOY_MANAGER_APPLICATION_ID y DEPLOY_MANAGER_BUILD_TOKEN para registrar la versión automáticamente.'
+          }
 
-          if [[ "$MANAGER_URL" != https://* ]] && ! { [[ "$RUNNER_ENVIRONMENT" == 'self-hosted' ]] && [[ "$MANAGER_URL" =~ ^http://(localhost|127\.0\.0\.1)(:[0-9]+)?(/|$) ]]; }; then
-            echo 'Usá HTTPS con GitHub-hosted runners o http://localhost con un runner self-hosted local.' >&2
-            exit 1
-          fi
+          $isLoopbackHttp = $env:MANAGER_URL -match '^http://(localhost|127\.0\.0\.1)(:[0-9]+)?(/|$)'
+          if (-not $env:MANAGER_URL.StartsWith('https://') -and -not ($env:RUNNER_ENVIRONMENT -eq 'self-hosted' -and $isLoopbackHttp)) {
+            throw 'Usá HTTPS con GitHub-hosted runners o http://localhost con un runner self-hosted local.'
+          }
 
-          result='success'
-          [[ "$BUILD_STATUS" == 'success' ]] || result='failure'
-          payload=$(node -e '
-            const [commitSha, branch, workflowRunId, attempt, buildRunUrl, status, imageDigest, displayVersion] = process.argv.slice(1);
-            const payload = { commitSha, branch, workflowRunId, workflowAttempt: Number(attempt), buildRunUrl, status };
-            if (imageDigest) payload.imageDigest = imageDigest;
-            if (displayVersion) payload.displayVersion = displayVersion;
-            process.stdout.write(JSON.stringify(payload));
-          ' "$COMMIT_SHA" "$BRANCH_NAME" "$RUN_ID" "$RUN_ATTEMPT" "$RUN_URL" "$result" "$IMAGE_DIGEST" "$DISPLAY_VERSION")
-
-          curl --fail --silent --show-error \
-            --request POST "$MANAGER_URL/integrations/build-callback" \
-            --header "Authorization: Bearer $CALLBACK_TOKEN" \
-            --header "X-Application-Id: $APPLICATION_ID" \
-            --header 'Content-Type: application/json' \
-            --data "$payload"
+          $result = if ($env:BUILD_STATUS -eq 'success') { 'success' } else { 'failure' }
+          $payload = [ordered]@{
+            commitSha = $env:COMMIT_SHA
+            branch = $env:BRANCH_NAME
+            workflowRunId = $env:RUN_ID
+            workflowAttempt = [int]$env:RUN_ATTEMPT
+            buildRunUrl = $env:RUN_URL
+            status = $result
+          }
+          if (-not [string]::IsNullOrWhiteSpace($env:IMAGE_DIGEST)) { $payload.imageDigest = $env:IMAGE_DIGEST }
+          if (-not [string]::IsNullOrWhiteSpace($env:DISPLAY_VERSION)) { $payload.displayVersion = $env:DISPLAY_VERSION }
+          $headers = @{ Authorization = "Bearer $env:CALLBACK_TOKEN"; 'X-Application-Id' = $env:APPLICATION_ID }
+          Invoke-RestMethod -Method Post -Uri "$($env:MANAGER_URL)/integrations/build-callback" -Headers $headers -ContentType 'application/json' -Body ($payload | ConvertTo-Json -Compress)
 
   report-check-failure:
     if: ${{ always() && needs.checks.result == 'failure' && (github.event_name != 'pull_request' || (startsWith(github.head_ref, 'release/') && github.event.pull_request.head.repo.full_name == github.repository)) }}
@@ -185,23 +190,23 @@ jobs:
           RUN_ATTEMPT: ${{ github.run_attempt }}
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           RUNNER_ENVIRONMENT: ${{ runner.environment }}
-        shell: bash
+        shell: pwsh
         run: |
-          if [[ -z "$MANAGER_URL" || -z "$APPLICATION_ID" || -z "$CALLBACK_TOKEN" ]]; then
-            echo 'Checks failed; automatic callback is not configured.'
+          if ([string]::IsNullOrWhiteSpace($env:MANAGER_URL) -or [string]::IsNullOrWhiteSpace($env:APPLICATION_ID) -or [string]::IsNullOrWhiteSpace($env:CALLBACK_TOKEN)) {
+            Write-Output 'Checks failed; automatic callback is not configured.'
             exit 0
-          fi
-          if [[ "$MANAGER_URL" != https://* ]] && ! { [[ "$RUNNER_ENVIRONMENT" == 'self-hosted' ]] && [[ "$MANAGER_URL" =~ ^http://(localhost|127\.0\.0\.1)(:[0-9]+)?(/|$) ]]; }; then
-            echo 'Use HTTPS with GitHub-hosted runners or http://localhost with a local self-hosted runner.' >&2
-            exit 1
-          fi
-          payload=$(node -e '
-            const [commitSha, branch, workflowRunId, attempt, buildRunUrl] = process.argv.slice(1);
-            process.stdout.write(JSON.stringify({ commitSha, branch, workflowRunId, workflowAttempt: Number(attempt), buildRunUrl, status: "failure" }));
-          ' "$COMMIT_SHA" "$BRANCH_NAME" "$RUN_ID" "$RUN_ATTEMPT" "$RUN_URL")
-          curl --fail --silent --show-error \
-            --request POST "$MANAGER_URL/integrations/build-callback" \
-            --header "Authorization: Bearer $CALLBACK_TOKEN" \
-            --header "X-Application-Id: $APPLICATION_ID" \
-            --header 'Content-Type: application/json' \
-            --data "$payload"
+          }
+          $isLoopbackHttp = $env:MANAGER_URL -match '^http://(localhost|127\.0\.0\.1)(:[0-9]+)?(/|$)'
+          if (-not $env:MANAGER_URL.StartsWith('https://') -and -not ($env:RUNNER_ENVIRONMENT -eq 'self-hosted' -and $isLoopbackHttp)) {
+            throw 'Use HTTPS with GitHub-hosted runners or http://localhost with a local self-hosted runner.'
+          }
+          $payload = @{
+            commitSha = $env:COMMIT_SHA
+            branch = $env:BRANCH_NAME
+            workflowRunId = $env:RUN_ID
+            workflowAttempt = [int]$env:RUN_ATTEMPT
+            buildRunUrl = $env:RUN_URL
+            status = 'failure'
+          }
+          $headers = @{ Authorization = "Bearer $env:CALLBACK_TOKEN"; 'X-Application-Id' = $env:APPLICATION_ID }
+          Invoke-RestMethod -Method Post -Uri "$($env:MANAGER_URL)/integrations/build-callback" -Headers $headers -ContentType 'application/json' -Body ($payload | ConvertTo-Json -Compress)
